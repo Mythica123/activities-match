@@ -8,7 +8,7 @@ import { Mail, User, Calendar } from 'lucide-react';
 interface PermissionsFormProps {
   provider: 'google' | 'outlook';
   userEmail: string;
-  onComplete: (data: { username: string; birthday: string }) => void;
+  onComplete: (data: { username: string; birthday: string; gender: string }) => void;
   onCancel: () => void;
 }
 
@@ -20,6 +20,7 @@ export default function PermissionsForm({
 }: PermissionsFormProps) {
   const [username, setUsername] = useState('');
   const [birthday, setBirthday] = useState('');
+  const [gender, setGender] = useState('prefer not to say');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,7 +29,7 @@ export default function PermissionsForm({
     setError('');
     setLoading(true);
 
-    if (!username || !birthday) {
+    if (!username || !birthday || !gender) {
       setError('Please fill in all fields');
       setLoading(false);
       return;
@@ -59,6 +60,7 @@ export default function PermissionsForm({
           email: userEmail,
           username,
           birthday,
+          gender,
         }),
       });
 
@@ -67,7 +69,7 @@ export default function PermissionsForm({
         throw new Error(data.message || 'Failed to save permissions');
       }
 
-      onComplete({ username, birthday });
+      onComplete({ username, birthday, gender });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -134,6 +136,26 @@ export default function PermissionsForm({
               disabled={loading}
               required
             />
+          </div>
+
+          {/* Gender */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Gender
+            </label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              disabled={loading}
+              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+              required
+            >
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="nonbinary">Non-binary</option>
+              <option value="other">Other</option>
+              <option value="prefer not to say">Prefer not to say</option>
+            </select>
           </div>
 
           {/* Buttons */}

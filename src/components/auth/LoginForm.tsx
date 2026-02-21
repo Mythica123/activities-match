@@ -132,6 +132,7 @@ export default function LoginForm() {
   const handlePermissionsComplete = async (data: {
     username: string;
     birthday: string;
+    gender: string;
   }) => {
     try {
       // Save to localStorage so Header can display it
@@ -171,7 +172,8 @@ export default function LoginForm() {
       return;
     }
 
-    // Move to password step
+    // Store email in session storage and move to password step
+    sessionStorage.setItem('pendingEmail', email);
     setMethod('password');
     setLoading(false);
   };
@@ -187,21 +189,41 @@ export default function LoginForm() {
       return;
     }
 
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
+
     try {
+      // First, try to login with existing account
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        // Existing user - log them in
         const data = await response.json();
-        throw new Error(data.message || 'Login failed');
+        localStorage.setItem('username', data.user.username);
+        localStorage.setItem('userEmail', data.user.email);
+        console.log('Login successful');
+        window.location.href = '/';
+        return;
       }
 
-      // TODO: Handle successful login (redirect to home)
-      console.log('Login successful');
-      window.location.href = '/';
+      // User doesn't exist or wrong password - offer to create account
+      const pendingEmail = sessionStorage.getItem('pendingEmail');
+      if (pendingEmail) {
+        sessionStorage.removeItem('pendingEmail');
+        // Redirect to signup page with email and password
+        window.location.href = `/signup?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+      } else {
+        // Invalid credentials
+        const data = await response.json();
+        setError(data.message || 'Login failed. Please check your credentials.');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
