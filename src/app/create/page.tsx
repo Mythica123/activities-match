@@ -13,6 +13,7 @@ interface ActivityForm {
   title: string;
   description: string;
   category: string;
+  customCategory: string;
   date: string;
   time: string;
   location: string;
@@ -28,6 +29,7 @@ export default function CreatePage() {
     title: '',
     description: '',
     category: 'sports',
+    customCategory: '',
     date: '',
     time: '',
     location: '',
@@ -58,6 +60,13 @@ export default function CreatePage() {
         return;
       }
 
+      // Validate custom category if "other" is selected
+      if (formData.category === 'other' && !formData.customCategory.trim()) {
+        setError('Please specify a custom category');
+        setLoading(false);
+        return;
+      }
+
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) {
         router.push('/login');
@@ -68,9 +77,14 @@ export default function CreatePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          creatorEmail: userEmail,
+          title: formData.title,
+          description: formData.description,
+          category: formData.category === 'other' ? formData.customCategory : formData.category,
+          date: formData.date,
+          time: formData.time,
+          location: formData.location,
           maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
+          creatorEmail: userEmail,
         }),
       });
 
@@ -80,11 +94,12 @@ export default function CreatePage() {
       }
 
       const data = await response.json();
-      setSuccess('Activity created successfully!');
+      setSuccess('🎉 Activity created successfully! Redirecting to discover...');
       
       // Reset form
       setFormData({
         title: '',
+        customCategory: '',
         description: '',
         category: 'sports',
         date: '',
@@ -96,7 +111,7 @@ export default function CreatePage() {
       // Redirect to discover page after success
       setTimeout(() => {
         router.push('/discover');
-      }, 1500);
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -187,6 +202,20 @@ export default function CreatePage() {
                     <option value="education">Education</option>
                     <option value="other">Other</option>
                   </select>
+
+                  {/* Custom Category Input */}
+                  {formData.category === 'other' && (
+                    <Input
+                      type="text"
+                      name="customCategory"
+                      value={formData.customCategory}
+                      onChange={handleChange}
+                      placeholder="Enter custom category..."
+                      disabled={loading}
+                      className="mt-3"
+                      required
+                    />
+                  )}
                 </div>
 
                 {/* Date and Time */}
