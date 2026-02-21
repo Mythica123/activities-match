@@ -6,19 +6,55 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, description, category, date, time, location, maxParticipants, creatorEmail } = await req.json();
+    const formData = await req.formData();
+    
+    const title = formData.get('title') as string;
+    const description = formData.get('description') as string;
+    const category = formData.get('category') as string;
+    const date = formData.get('date') as string;
+    const time = formData.get('time') as string;
+    const location = formData.get('location') as string;
+    const maxParticipants = formData.get('maxParticipants') as string;
+    const creatorEmail = formData.get('creatorEmail') as string;
+    const gendersStr = formData.get('genders') as string;
+    const ageMin = formData.get('ageMin') as string;
+    const ageMax = formData.get('ageMax') as string;
+    const distance = formData.get('distance') as string;
+    const imageFile = formData.get('image') as File | null;
 
     // Validate required fields
-    if (!title || !description || !category || !date || !time || !location || !creatorEmail) {
+    if (!title || !description || !category || !date || !time || !location || !maxParticipants || !creatorEmail) {
       return NextResponse.json(
         { message: 'Missing required fields' },
         { status: 400 }
       );
     }
 
+    let imageUrl: string | null = null;
+
     // If Supabase is configured, save to database
     if (supabaseUrl && supabaseServiceKey) {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      // Upload image if provided
+      if (imageFile) {
+        try {
+          const fileName = `${Date.now()}-${imageFile.name}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('activity-images')
+            .upload(fileName, imageFile);
+
+          if (uploadError) {
+            console.error('Image upload error:', uploadError);
+          } else {
+            imageUrl = `${supabaseUrl}/storage/v1/object/public/activity-images/${uploadData.path}`;
+          }
+        } catch (imgErr) {
+          console.error('Image processing error:', imgErr);
+        }
+      }
+
+      const genders = gendersStr ? JSON.parse(gendersStr) : [];
 
       const { data, error } = await supabase
         .from('posts')
@@ -29,8 +65,13 @@ export async function POST(req: NextRequest) {
           date,
           time,
           location,
-          max_participants: maxParticipants,
+          max_participants: parseInt(maxParticipants),
           creator_email: creatorEmail,
+          image_url: imageUrl,
+          genders: genders,
+          age_min: ageMin ? parseInt(ageMin) : null,
+          age_max: ageMax ? parseInt(ageMax) : null,
+          distance: distance ? parseInt(distance) : null,
           created_at: new Date().toISOString(),
         })
         .select()
@@ -52,6 +93,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fallback if Supabase not configured
+    const genders = gendersStr ? JSON.parse(gendersStr) : [];
     return NextResponse.json({
       success: true,
       message: 'Activity created successfully',
@@ -63,8 +105,13 @@ export async function POST(req: NextRequest) {
         date,
         time,
         location,
-        max_participants: maxParticipants,
+        max_participants: parseInt(maxParticipants),
         creator_email: creatorEmail,
+        image_url: imageUrl,
+        genders: genders,
+        age_min: ageMin ? parseInt(ageMin) : null,
+        age_max: ageMax ? parseInt(ageMax) : null,
+        distance: distance ? parseInt(distance) : null,
         created_at: new Date().toISOString(),
       },
     });

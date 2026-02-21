@@ -6,7 +6,7 @@ import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft } from 'lucide-react';
+import { X, Upload } from 'lucide-react';
 import Link from 'next/link';
 
 interface ActivityForm {
@@ -18,6 +18,10 @@ interface ActivityForm {
   time: string;
   location: string;
   maxParticipants: string;
+  genders: string[];
+  ageMin: string;
+  ageMax: string;
+  distance: string;
 }
 
 export default function CreatePage() {
@@ -25,6 +29,8 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<ActivityForm>({
     title: '',
     description: '',
@@ -34,6 +40,10 @@ export default function CreatePage() {
     time: '',
     location: '',
     maxParticipants: '',
+    genders: [],
+    ageMin: '',
+    ageMax: '',
+    distance: '',
   });
 
   const handleChange = (
@@ -46,6 +56,27 @@ export default function CreatePage() {
     }));
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleGenderToggle = (gender: string) => {
+    setFormData(prev => ({
+      ...prev,
+      genders: prev.genders.includes(gender)
+        ? prev.genders.filter(g => g !== gender)
+        : [...prev.genders, gender],
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -54,7 +85,7 @@ export default function CreatePage() {
 
     try {
       // Validate required fields
-      if (!formData.title || !formData.description || !formData.date || !formData.time || !formData.location) {
+      if (!formData.title || !formData.description || !formData.date || !formData.time || !formData.location || !formData.maxParticipants) {
         setError('Please fill in all required fields');
         setLoading(false);
         return;
@@ -73,19 +104,27 @@ export default function CreatePage() {
         return;
       }
 
+      // Create FormData to handle image upload
+      const formDataRequest = new FormData();
+      formDataRequest.append('title', formData.title);
+      formDataRequest.append('description', formData.description);
+      formDataRequest.append('category', formData.category === 'other' ? formData.customCategory : formData.category);
+      formDataRequest.append('date', formData.date);
+      formDataRequest.append('time', formData.time);
+      formDataRequest.append('location', formData.location);
+      formDataRequest.append('maxParticipants', formData.maxParticipants);
+      formDataRequest.append('creatorEmail', userEmail);
+      formDataRequest.append('genders', JSON.stringify(formData.genders));
+      formDataRequest.append('ageMin', formData.ageMin);
+      formDataRequest.append('ageMax', formData.ageMax);
+      formDataRequest.append('distance', formData.distance);
+      if (imageFile) {
+        formDataRequest.append('image', imageFile);
+      }
+
       const response = await fetch('/api/posts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          category: formData.category === 'other' ? formData.customCategory : formData.category,
-          date: formData.date,
-          time: formData.time,
-          location: formData.location,
-          maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
-          creatorEmail: userEmail,
-        }),
+        body: formDataRequest,
       });
 
       if (!response.ok) {
@@ -106,7 +145,13 @@ export default function CreatePage() {
         time: '',
         location: '',
         maxParticipants: '',
+        genders: [],
+        ageMin: '',
+        ageMax: '',
+        distance: '',
       });
+      setImagePreview(null);
+      setImageFile(null);
 
       // Redirect to discover page after success
       setTimeout(() => {
@@ -184,7 +229,7 @@ export default function CreatePage() {
                 {/* Category */}
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                    Category
+                    Category *
                   </label>
                   <select
                     name="category"
@@ -268,16 +313,126 @@ export default function CreatePage() {
                 {/* Max Participants */}
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                    Max Participants (Optional)
+                    Max Participants *
                   </label>
                   <Input
                     type="number"
                     name="maxParticipants"
                     value={formData.maxParticipants}
                     onChange={handleChange}
-                    placeholder="Leave empty for unlimited"
+                    placeholder="Enter maximum number of participants"
                     disabled={loading}
                     min="1"
+                    required
+                  />
+                </div>
+
+                {/* Image Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                    Event Image (Optional)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex-1 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg p-6 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
+                      <div className="flex flex-col items-center justify-center">
+                        <Upload className="w-6 h-6 text-zinc-400 mb-2" />
+                        <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                          {imagePreview ? 'Change image' : 'Upload image'}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        disabled={loading}
+                        className="hidden"
+                      />
+                    </label>
+                    {imagePreview && (
+                      <div className="relative w-24 h-24">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                        <button
+                          onClick={() => {
+                            setImagePreview(null);
+                            setImageFile(null);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Gender Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">
+                    Gender(s) Interested (Optional)
+                  </label>
+                  <div className="space-y-2">
+                    {['Female', 'Male', 'Nonbinary', 'Other'].map((gender) => (
+                      <label key={gender} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.genders.includes(gender)}
+                          onChange={() => handleGenderToggle(gender)}
+                          disabled={loading}
+                          className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700"
+                        />
+                        <span className="text-sm text-zinc-700 dark:text-zinc-300">{gender}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Age Range */}
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                    Age Range (Optional)
+                  </label>
+                  <div className="flex gap-3 items-center">
+                    <Input
+                      type="number"
+                      name="ageMin"
+                      value={formData.ageMin}
+                      onChange={handleChange}
+                      placeholder="Min"
+                      disabled={loading}
+                      min="0"
+                      max="130"
+                    />
+                    <span className="text-zinc-600 dark:text-zinc-400">to</span>
+                    <Input
+                      type="number"
+                      name="ageMax"
+                      value={formData.ageMax}
+                      onChange={handleChange}
+                      placeholder="Max"
+                      disabled={loading}
+                      min="0"
+                      max="130"
+                    />
+                  </div>
+                </div>
+
+                {/* Distance */}
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                    Max Distance (miles) (Optional)
+                  </label>
+                  <Input
+                    type="number"
+                    name="distance"
+                    value={formData.distance}
+                    onChange={handleChange}
+                    placeholder="Leave empty for no limit"
+                    disabled={loading}
+                    min="0"
                   />
                 </div>
 
