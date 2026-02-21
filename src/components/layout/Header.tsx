@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, Settings } from 'lucide-react';
 
 export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -77,12 +77,20 @@ export default function Header() {
 
               {/* Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-950 rounded-md shadow-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-950 rounded-md shadow-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden z-50">
                   {username ? (
                     <>
                       <div className="px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                         {username}
                       </div>
+                      <Link
+                        href="/profile"
+                        className="block px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center gap-2"
+                        onClick={() => setIsDropdownOpen(false)}
+                      >
+                        <Settings className="w-4 h-4" />
+                        <span>Profile Settings</span>
+                      </Link>
                       <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center gap-2"

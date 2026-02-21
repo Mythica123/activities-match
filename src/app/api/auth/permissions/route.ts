@@ -11,7 +11,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { provider, email, username, birthday } = await req.json();
+    const { provider, email, username, birthday, gender } = await req.json();
 
     // Validate inputs
     if (!provider || !email || !username || !birthday) {
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
             email,
             username,
             birthday,
+            gender: gender || 'prefer not to say',
             provider,
             updated_at: new Date().toISOString(),
           },
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
         email,
         username,
         birthday,
+        gender: gender || 'prefer not to say',
         provider,
       },
     });
