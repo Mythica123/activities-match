@@ -122,14 +122,21 @@ export default function CreatePage() {
         formDataRequest.append('image', imageFile);
       }
 
-      const response = await fetch('/api/posts', {
+      const response = await fetch('/api/create', {
         method: 'POST',
         body: formDataRequest,
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to create activity');
+        const text = await response.text();
+        let msg = 'Failed to create activity';
+        try {
+            const maybe = JSON.parse(text);
+            msg = maybe.message || msg;
+        } catch {
+            msg = text || msg; // handles non-JSON responses too
+        }
+        throw new Error(msg);
       }
 
       const data = await response.json();
