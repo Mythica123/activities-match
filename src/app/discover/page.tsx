@@ -113,14 +113,6 @@ export default function DiscoverPage() {
     }));
   };
 
-  const handleAddActivity = () => {
-    if (activitySearch.trim() && !availableActivities.includes(activitySearch.trim())) {
-      setAvailableActivities(prev => [...prev, activitySearch.trim()]);
-      handleActivityToggle(activitySearch.trim());
-      setActivitySearch('');
-    }
-  };
-
   const filteredActivities = availableActivities.filter(activity =>
     activity.toLowerCase().includes(activitySearch.toLowerCase())
   );
@@ -271,17 +263,9 @@ export default function DiscoverPage() {
                       type="text"
                       value={activitySearch}
                       onChange={(e) => setActivitySearch(e.target.value)}
-                      placeholder="Search or add activity..."
+                      placeholder="Search activities..."
                       className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-black dark:text-white text-sm"
                     />
-                    {activitySearch.trim() && !availableActivities.includes(activitySearch.trim()) && (
-                      <button
-                        onClick={handleAddActivity}
-                        className="mt-2 w-full px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
-                      >
-                        Add "{activitySearch}"
-                      </button>
-                    )}
                   </div>
                   <div className="space-y-2 max-h-48 overflow-y-scroll pr-2 scrollbar scrollbar-thumb-blue-500 scrollbar-track-zinc-200 dark:scrollbar-thumb-blue-600 dark:scrollbar-track-zinc-800">
                     {filteredActivities.map((activity) => (
