@@ -310,7 +310,23 @@ export default function DiscoverPage() {
     fetchActivities();
   }, [fetchActivities]);
 
-  const handleAccept = () => setSwipeIndex(i => i + 1);
+  const handleAccept = async () => {
+    const currentActivity = activities[swipeIndex];
+    const userEmail = localStorage.getItem('userEmail');
+    if (currentActivity && userEmail) {
+      try {
+        await fetch('/api/join-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ activityId: currentActivity.id, requesterEmail: userEmail }),
+        });
+      } catch {
+        // non-fatal, still advance card
+      }
+    }
+    setSwipeIndex(i => i + 1);
+  };
+
   const handleReject = () => setSwipeIndex(i => i + 1);
 
   const remainingCards = activities.slice(swipeIndex);
