@@ -265,6 +265,10 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [swipeIndex, setSwipeIndex] = useState(0);
+  const [modal, setModal] = useState<{ activity: Activity } | null>(null);
+  const [modalStep, setModalStep] = useState<'ask' | 'compose'>('ask');
+  const [introMessage, setIntroMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
   const [filters, setFilters] = useState<Filters>({
@@ -310,21 +314,36 @@ export default function DiscoverPage() {
     fetchActivities();
   }, [fetchActivities]);
 
-  const handleAccept = async () => {
+  const handleAccept = () => {
     const currentActivity = activities[swipeIndex];
+    if (!currentActivity) return;
+    setModal({ activity: currentActivity });
+    setModalStep('ask');
+    setIntroMessage('');
+  };
+
+  const sendJoinRequest = async (message?: string) => {
+    const currentActivity = modal?.activity;
     const userEmail = localStorage.getItem('userEmail');
-    if (currentActivity && userEmail) {
-      try {
-        await fetch('/api/join-requests', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ activityId: currentActivity.id, requesterEmail: userEmail }),
-        });
-      } catch {
-        // non-fatal, still advance card
-      }
+    if (!currentActivity || !userEmail) return;
+    setSubmitting(true);
+    try {
+      await fetch('/api/join-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activityId: currentActivity.id,
+          requesterEmail: userEmail,
+          message: message || null,
+        }),
+      });
+    } catch {
+      // non-fatal
+    } finally {
+      setSubmitting(false);
+      setModal(null);
+      setSwipeIndex(i => i + 1);
     }
-    setSwipeIndex(i => i + 1);
   };
 
   const handleReject = () => setSwipeIndex(i => i + 1);
@@ -341,6 +360,71 @@ export default function DiscoverPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       <Header />
+
+      {/* ── Join Request Modal ── */}
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-sm p-6">
+            {modalStep === 'ask' ? (
+              <>
+                <h2 className="text-lg font-bold text-black dark:text-white mb-1">Interested in joining?</h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                  Would you like to send a quick message to the host of <span className="font-semibold text-black dark:text-white">{modal.activity.title}</span>?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => sendJoinRequest()}
+                    className="flex-1 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    No, just request
+                  </button>
+                  <button
+                    onClick={() => setModalStep('compose')}
+                    className="flex-1 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Yes, send message
+                  </button>
+                </div>
+                <button
+                  onClick={() => { setModal(null); }}
+                  className="mt-3 w-full text-center text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-black dark:text-white mb-1">Write a message</h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+                  Introduce yourself to the host of <span className="font-semibold text-black dark:text-white">{modal.activity.title}</span>.
+                </p>
+                <textarea
+                  value={introMessage}
+                  onChange={e => setIntroMessage(e.target.value)}
+                  placeholder="Hi! I'd love to join your activity..."
+                  rows={4}
+                  className="w-full px-3 py-2.5 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white mb-4"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setModalStep('ask')}
+                    className="flex-1 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => sendJoinRequest(introMessage)}
+                    disabled={submitting || !introMessage.trim()}
+                    className="flex-1 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
+                  >
+                    {submitting ? 'Sending...' : 'Send & Request'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Top bar */}
       <div className="sticky top-16 z-30 bg-white dark:bg-black border-b border-zinc-200 dark:border-zinc-800">
