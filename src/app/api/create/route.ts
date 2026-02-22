@@ -12,30 +12,37 @@ export async function POST(req: NextRequest) {
     const body = await req.formData();
 
     // ── Required fields ──────────────────────────────────────────────────────
-    const title          = body.get('title')          as string | null;
-    const description    = body.get('description')    as string | null;
-    const category       = body.get('category')       as string | null;
-    const date           = body.get('date')           as string | null;
-    const time           = body.get('time')           as string | null;
-    const location       = body.get('location')       as string | null;
+    const title           = body.get('title')           as string | null;
+    const description     = body.get('description')     as string | null;
+    const categoriesRaw   = body.get('categories')      as string | null;
+    const date            = body.get('date')            as string | null;
+    const time            = body.get('time')            as string | null;
+    const location        = body.get('location')        as string | null;
     const maxParticipants = body.get('maxParticipants') as string | null;
-    const creatorEmail   = body.get('creatorEmail')   as string | null;
+    const creatorEmail    = body.get('creatorEmail')    as string | null;
 
-    if (!title || !description || !category || !date || !time || !location || !maxParticipants || !creatorEmail) {
+    const categories: string[] = categoriesRaw ? JSON.parse(categoriesRaw) : [];
+
+    if (!title || !description || categories.length === 0 || !date || !time || !location || !maxParticipants || !creatorEmail) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
     // ── Optional fields ───────────────────────────────────────────────────────
-    const gendersRaw = body.get('genders') as string | null;
+    const gendersRaw  = body.get('genders')  as string | null;
     const genders: string[] = gendersRaw ? JSON.parse(gendersRaw) : [];
 
-    const ageMinRaw  = body.get('ageMin')  as string | null;
-    const ageMaxRaw  = body.get('ageMax')  as string | null;
+    const ageMinRaw   = body.get('ageMin')   as string | null;
+    const ageMaxRaw   = body.get('ageMax')   as string | null;
     const distanceRaw = body.get('distance') as string | null;
+    const zipCode     = body.get('zipCode')  as string | null;
+    const latRaw      = body.get('latitude') as string | null;
+    const lngRaw      = body.get('longitude') as string | null;
 
-    const ageMin   = ageMinRaw   && ageMinRaw   !== '' ? parseInt(ageMinRaw)   : null;
-    const ageMax   = ageMaxRaw   && ageMaxRaw   !== '' ? parseInt(ageMaxRaw)   : null;
+    const ageMin   = ageMinRaw   && ageMinRaw   !== '' ? parseInt(ageMinRaw)    : null;
+    const ageMax   = ageMaxRaw   && ageMaxRaw   !== '' ? parseInt(ageMaxRaw)    : null;
     const distance = distanceRaw && distanceRaw !== '' ? parseFloat(distanceRaw) : null;
+    const latitude  = latRaw     && latRaw      !== '' ? parseFloat(latRaw)     : null;
+    const longitude = lngRaw     && lngRaw      !== '' ? parseFloat(lngRaw)     : null;
 
     // ── Look up creator user id from users table ───────────────────────────
     const { data: userData, error: userError } = await supabase
@@ -53,9 +60,9 @@ export async function POST(req: NextRequest) {
     const imageFile = body.get('image') as File | null;
 
     if (imageFile && imageFile.size > 0) {
-      const ext       = imageFile.name.split('.').pop() ?? 'jpg';
-      const fileName  = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const filePath  = `activity-images/${fileName}`;
+      const ext      = imageFile.name.split('.').pop() ?? 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const filePath = `activity-images/${fileName}`;
 
       const arrayBuffer = await imageFile.arrayBuffer();
       const buffer      = Buffer.from(arrayBuffer);
@@ -87,15 +94,18 @@ export async function POST(req: NextRequest) {
       .insert({
         title,
         description,
-        category,
+        categories,
         scheduled_at: scheduledAt,
         location,
+        zip_code: zipCode,
+        latitude,
+        longitude,
         max_participants: parseInt(maxParticipants),
         creator_id: userData.id,
         image_url: imageUrl,
-        genders:   genders.length > 0 ? genders : null,
-        age_min:   ageMin,
-        age_max:   ageMax,
+        genders:        genders.length > 0 ? genders : null,
+        age_min:        ageMin,
+        age_max:        ageMax,
         distance_miles: distance,
         current_participants: 1, // creator counts as first participant
       })

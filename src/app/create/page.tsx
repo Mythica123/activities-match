@@ -1,22 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Upload, Sparkles, RefreshCw } from 'lucide-react';
+import { X, Upload, Sparkles, RefreshCw, Plus } from 'lucide-react';
 import Link from 'next/link';
+
+const STANDARD_CATEGORIES = ['sports', 'arts', 'outdoor', 'social', 'gaming', 'fitness', 'education'];
 
 interface ActivityForm {
   title: string;
   description: string;
-  category: string;
-  customCategory: string;
+  categories: string[];
+  newCategory: string;
   date: string;
   time: string;
   location: string;
+  zipCode: string;
   maxParticipants: string;
   genders: string[];
   ageMin: string;
@@ -40,6 +43,18 @@ export default function CreatePage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
 
+  // Custom categories
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCatLoading, setNewCatLoading] = useState(false);
+  const [newCatError, setNewCatError] = useState('');
+
+  // Zip code geocoding
+  const [zipLoading, setZipLoading] = useState(false);
+  const [zipError, setZipError] = useState('');
+  const [zipResolved, setZipResolved] = useState<{ city: string; state: string; lat: number; lng: number } | null>(null);
+
+  // AI modal
   const [aiModal, setAiModal] = useState<'ask' | 'generating' | 'preview' | null>(null);
   const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
   const [aiMimeType, setAiMimeType] = useState('image/png');
@@ -48,12 +63,19 @@ export default function CreatePage() {
   const [pendingSubmit, setPendingSubmit] = useState<ActivityForm | null>(null);
 
   const [formData, setFormData] = useState<ActivityForm>({
-    title: '', description: '', category: 'sports', customCategory: '',
-    date: '', time: '', location: '', maxParticipants: '',
-    genders: [], ageMin: '', ageMax: '', distance: '',
+    title: '', description: '', categories: [], newCategory: '',
+    date: '', time: '', location: '', zipCode: '',
+    maxParticipants: '', genders: [], ageMin: '', ageMax: '', distance: '',
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  useEffect(() => {
+    fetch('/api/categories').then(r => r.json()).then(d => {
+      setCustomCategories((d.categories ?? []).map((c: { name: string }) => c.name));
+    }).catch(() => {});
+    // Zip code intentionally not pre-filled — host may be at a different location
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -71,10 +93,44 @@ export default function CreatePage() {
   const handleGenderToggle = (gender: string) => {
     setFormData(prev => ({
       ...prev,
-      genders: prev.genders.includes(gender)
-        ? prev.genders.filter(g => g !== gender)
-        : [...prev.genders, gender],
+      genders: prev.genders.includes(gender) ? prev.genders.filter(g => g !== gender) : [...prev.genders, gender],
     }));
+  };
+
+  const handleCategoryToggle = (cat: string) => {
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.includes(cat) ? prev.categories.filter(c => c !== cat) : [...prev.categories, cat],
+    }));
+  };
+
+  const handleAddCategory = async () => {
+    const name = formData.newCategory.trim().toLowerCase();
+    if (!name) return;
+    if (!customCategories.includes(name)) setCustomCategories(prev => [...prev, name]);
+    setFormData(prev => ({
+      ...prev,
+      newCategory: '',
+      categories: prev.categories.includes(name) ? prev.categories : [...prev.categories, name],
+    }));
+    setAddingCategory(false);
+  };
+
+  const lookupZip = async (zip: string) => {
+    if (!zip || zip.length < 5) return;
+    setZipLoading(true);
+    setZipError('');
+    try {
+      const res = await fetch(`/api/geocode?zip=${zip}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? 'Invalid zip code');
+      setZipResolved({ city: data.city, state: data.state, lat: data.latitude, lng: data.longitude });
+    } catch (err) {
+      setZipError(err instanceof Error ? err.message : 'Zip lookup failed');
+      setZipResolved(null);
+    } finally {
+      setZipLoading(false);
+    }
   };
 
   const generateAiImage = async (data: ActivityForm) => {
@@ -84,19 +140,11 @@ export default function CreatePage() {
       const res = await fetch('/api/ai/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: data.title,
-          category: data.category === 'other' ? data.customCategory : data.category,
-          description: data.description,
-        }),
+        body: JSON.stringify({ title: data.title, category: data.categories[0] ?? 'social', description: data.description }),
       });
       const result = await res.json();
-      if (!res.ok || !result.success) {
-        throw new Error(result.message ?? 'Image generation failed');
-      }
-      if (!result.imageBase64) {
-        throw new Error('No image returned — please try again');
-      }
+      if (!res.ok || !result.success) throw new Error(result.message ?? 'Image generation failed');
+      if (!result.imageBase64) throw new Error('No image returned — please try again');
       setAiImageBase64(result.imageBase64);
       setAiMimeType(result.mimeType ?? 'image/png');
       setAiModal('preview');
@@ -126,13 +174,12 @@ export default function CreatePage() {
     e.preventDefault();
     setError('');
     setSuccess('');
-
     if (!formData.title || !formData.description || !formData.date || !formData.time || !formData.location || !formData.maxParticipants) {
       setError('Please fill in all required fields');
       return;
     }
-    if (formData.category === 'other' && !formData.customCategory.trim()) {
-      setError('Please specify a custom category');
+    if (formData.categories.length === 0) {
+      setError('Please select at least one category');
       return;
     }
     const userEmail = localStorage.getItem('userEmail');
@@ -144,7 +191,6 @@ export default function CreatePage() {
       setAiError('');
       return;
     }
-
     await submitActivity(formData, imageFile);
   };
 
@@ -158,7 +204,7 @@ export default function CreatePage() {
       const fd = new FormData();
       fd.append('title', data.title);
       fd.append('description', data.description);
-      fd.append('category', data.category === 'other' ? data.customCategory : data.category);
+      fd.append('categories', JSON.stringify(data.categories));
       fd.append('date', data.date);
       fd.append('time', data.time);
       fd.append('location', data.location);
@@ -168,6 +214,16 @@ export default function CreatePage() {
       fd.append('ageMin', data.ageMin);
       fd.append('ageMax', data.ageMax);
       fd.append('distance', data.distance);
+      if (data.zipCode && zipResolved) {
+        fd.append('zipCode', data.zipCode);
+        fd.append('latitude', String(zipResolved.lat));
+        fd.append('longitude', String(zipResolved.lng));
+        localStorage.setItem('userZip', data.zipCode);
+        localStorage.setItem('userLat', String(zipResolved.lat));
+        localStorage.setItem('userLng', String(zipResolved.lng));
+        localStorage.setItem('userCity', zipResolved.city);
+        localStorage.setItem('userState', zipResolved.state);
+      }
       if (imgFile) fd.append('image', imgFile);
 
       const response = await fetch('/api/create', { method: 'POST', body: fd });
@@ -179,7 +235,7 @@ export default function CreatePage() {
       }
 
       setSuccess('🎉 Activity created successfully! Redirecting to discover...');
-      setFormData({ title: '', customCategory: '', description: '', category: 'sports', date: '', time: '', location: '', maxParticipants: '', genders: [], ageMin: '', ageMax: '', distance: '' });
+      setFormData({ title: '', description: '', categories: [], newCategory: '', date: '', time: '', location: '', zipCode: '', maxParticipants: '', genders: [], ageMin: '', ageMax: '', distance: '' });
       setImagePreview(null);
       setImageFile(null);
       setPendingSubmit(null);
@@ -191,6 +247,8 @@ export default function CreatePage() {
     }
   };
 
+  const allCategories = [...STANDARD_CATEGORIES, ...customCategories.filter(c => !STANDARD_CATEGORIES.includes(c))];
+
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       <Header />
@@ -199,40 +257,26 @@ export default function CreatePage() {
       {aiModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-md p-6">
-
             {aiModal === 'ask' && (
               <>
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="w-5 h-5 text-yellow-500" />
                   <h2 className="text-lg font-bold text-black dark:text-white">Generate an AI image?</h2>
                 </div>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
-                  You didn't upload an image. Want Imagen AI to generate a cover photo for:
-                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">You didn't upload an image. Want Imagen AI to generate a cover photo for:</p>
                 <p className="font-semibold text-black dark:text-white mb-6">"{pendingSubmit?.title}"</p>
-                {aiError && (
-                  <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>
-                  </div>
-                )}
+                {aiError && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"><p className="text-sm text-red-600 dark:text-red-400">{aiError}</p></div>}
                 <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => { setAiModal('generating'); generateAiImage(pendingSubmit!); }}
-                    className="w-full py-3 rounded-xl bg-black text-white text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    Yes, generate with Imagen AI
+                  <button onClick={() => { setAiModal('generating'); generateAiImage(pendingSubmit!); }}
+                    className="w-full py-3 rounded-xl bg-black text-white text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                    <Sparkles className="w-4 h-4" />Yes, generate with Imagen AI
                   </button>
-                  <button
-                    onClick={handleSkipAiImage}
-                    className="w-full py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                  >
+                  <button onClick={handleSkipAiImage} className="w-full py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
                     No, skip image
                   </button>
                 </div>
               </>
             )}
-
             {aiModal === 'generating' && (
               <div className="flex flex-col items-center py-8 gap-4">
                 <div className="w-12 h-12 border-2 border-zinc-300 dark:border-zinc-700 border-t-black dark:border-t-white rounded-full animate-spin" />
@@ -240,33 +284,20 @@ export default function CreatePage() {
                 <p className="text-xs text-zinc-400">This may take 5–10 seconds</p>
               </div>
             )}
-
             {aiModal === 'preview' && aiImageBase64 && (
               <>
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="w-5 h-5 text-yellow-500" />
                   <h2 className="text-lg font-bold text-black dark:text-white">AI Generated Image</h2>
                 </div>
-                <img
-                  src={`data:${aiMimeType};base64,${aiImageBase64}`}
-                  alt="AI generated activity"
-                  className="w-full rounded-xl mb-4 object-cover max-h-64"
-                />
+                <img src={`data:${aiMimeType};base64,${aiImageBase64}`} alt="AI generated" className="w-full rounded-xl mb-4 object-cover max-h-64" />
                 <div className="flex flex-col gap-2">
-                  <button onClick={handleAcceptAiImage} className="w-full py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:opacity-90 transition-opacity border-2 border-black">
-                    ✓ Use this image
+                  <button onClick={handleAcceptAiImage} className="w-full py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:opacity-90 transition-opacity border-2 border-black">✓ Use this image</button>
+                  <button onClick={() => { setAiModal('generating'); generateAiImage(pendingSubmit!); }} disabled={aiGenerating}
+                    className="w-full py-2.5 rounded-xl border-2 border-zinc-400 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4" />Generate another
                   </button>
-                  <button
-                    onClick={() => { setAiModal('generating'); generateAiImage(pendingSubmit!); }}
-                    disabled={aiGenerating}
-                    className="w-full py-2.5 rounded-xl border-2 border-zinc-400 dark:border-zinc-500 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    Generate another
-                  </button>
-                  <button onClick={handleSkipAiImage} className="w-full text-center text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 py-1 transition-colors">
-                    Skip, no image
-                  </button>
+                  <button onClick={handleSkipAiImage} className="w-full text-center text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 py-1 transition-colors">Skip, no image</button>
                 </div>
               </>
             )}
@@ -292,26 +323,52 @@ export default function CreatePage() {
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Activity Title *</label>
                   <Input type="text" name="title" value={formData.title} onChange={handleChange} placeholder="e.g., Weekend Basketball Game" disabled={loading} required />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Description *</label>
                   <Textarea name="description" value={formData.description} onChange={handleChange} placeholder="Tell others about your activity..." disabled={loading} required rows={5} />
                 </div>
+
+                {/* Multi-Category */}
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Category *</label>
-                  <select name="category" value={formData.category} onChange={handleChange} disabled={loading} className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white">
-                    <option value="sports">Sports</option>
-                    <option value="arts">Arts & Culture</option>
-                    <option value="outdoor">Outdoor</option>
-                    <option value="social">Social</option>
-                    <option value="gaming">Gaming</option>
-                    <option value="fitness">Fitness</option>
-                    <option value="education">Education</option>
-                    <option value="other">Other</option>
-                  </select>
-                  {formData.category === 'other' && (
-                    <Input type="text" name="customCategory" value={formData.customCategory} onChange={handleChange} placeholder="Enter custom category..." disabled={loading} className="mt-3" required />
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                    Categories * <span className="font-normal text-zinc-400 text-xs ml-1">select all that apply</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {allCategories.map(cat => (
+                      <button key={cat} type="button" onClick={() => handleCategoryToggle(cat)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-semibold capitalize transition-all border-2 ${
+                          formData.categories.includes(cat)
+                            ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-300 dark:ring-indigo-700 shadow-sm'
+                            : 'bg-white text-zinc-600 border-zinc-300 hover:border-indigo-400 hover:text-indigo-600 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-700'
+                        }`}>
+                        {formData.categories.includes(cat) ? `✓ ${cat}` : cat}
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => setAddingCategory(!addingCategory)}
+                      className="px-3 py-1.5 rounded-full text-sm font-medium text-zinc-500 border-2 border-dashed border-zinc-300 hover:border-indigo-400 hover:text-indigo-600 flex items-center gap-1 transition-colors">
+                      <Plus className="w-3.5 h-3.5" />Other
+                    </button>
+                  </div>
+                  {formData.categories.length > 0 && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Selected: {formData.categories.join(', ')}</p>
                   )}
+                  {addingCategory && (
+                    <div className="mt-2 flex gap-2">
+                      <Input
+                        type="text" name="newCategory" value={formData.newCategory}
+                        onChange={handleChange} placeholder="e.g., cooking, hiking..."
+                        disabled={newCatLoading}
+                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCategory())}
+                      />
+                      <Button type="button" onClick={handleAddCategory} disabled={newCatLoading || !formData.newCategory.trim()} className="flex-shrink-0">
+                        {newCatLoading ? '...' : 'Add'}
+                      </Button>
+                    </div>
+                  )}
+                  {newCatError && <p className="text-xs text-red-500 mt-1">{newCatError}</p>}
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Date *</label>
@@ -322,18 +379,36 @@ export default function CreatePage() {
                     <Input type="time" name="time" value={formData.time} onChange={handleChange} disabled={loading} required />
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Location *</label>
                   <Input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="e.g., Central Park, New York" disabled={loading} required />
                 </div>
+
+                {/* Zip Code */}
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                    Zip Code <span className="font-normal text-zinc-400 text-xs ml-1">— used for distance matching</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <Input type="text" name="zipCode" value={formData.zipCode} maxLength={5}
+                      onChange={e => { handleChange(e); if (e.target.value.length === 5) lookupZip(e.target.value); }}
+                      placeholder="e.g. 01002" disabled={loading} />
+                    {zipLoading && <span className="text-sm text-zinc-400 self-center">Looking up...</span>}
+                  </div>
+                  {zipError && <p className="text-xs text-red-500 mt-1">{zipError}</p>}
+                  {zipResolved && <p className="text-xs text-green-600 dark:text-green-400 mt-1">📍 {zipResolved.city}, {zipResolved.state}</p>}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Max Participants *</label>
                   <Input type="number" name="maxParticipants" value={formData.maxParticipants} onChange={handleChange} placeholder="Enter maximum number of participants" disabled={loading} min="1" required />
                 </div>
+
+                {/* Image */}
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                    Event Image
-                    <span className="ml-2 text-xs text-zinc-400 font-normal flex-shrink-0">— or let AI generate one ✨</span>
+                    Event Image <span className="ml-2 text-xs text-zinc-400 font-normal">— or let AI generate one ✨</span>
                   </label>
                   <div className="flex items-center gap-4">
                     <label className="flex-1 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg p-6 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
@@ -353,6 +428,7 @@ export default function CreatePage() {
                     )}
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">Gender(s) Interested (Optional)</label>
                   <div className="space-y-2">
@@ -364,6 +440,7 @@ export default function CreatePage() {
                     ))}
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Age Range (Optional)</label>
                   <div className="flex gap-3 items-center">
@@ -372,10 +449,14 @@ export default function CreatePage() {
                     <Input type="number" name="ageMax" value={formData.ageMax} onChange={handleChange} placeholder="Max" disabled={loading} min="0" max="130" />
                   </div>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Max Distance (miles) (Optional)</label>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                    Max Distance for Participants (miles) (Optional)
+                  </label>
                   <Input type="number" name="distance" value={formData.distance} onChange={handleChange} placeholder="Leave empty for no limit" disabled={loading} min="0" />
                 </div>
+
                 <div className="flex gap-3 pt-4">
                   <Link href="/discover" className="flex-1">
                     <Button type="button" variant="outline" className="w-full" disabled={loading}>Cancel</Button>
@@ -388,6 +469,7 @@ export default function CreatePage() {
             </div>
           </div>
 
+          {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-zinc-950 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-800 p-6 sticky top-32">
               <h3 className="text-lg font-bold text-black dark:text-white mb-4">Guidelines</h3>
@@ -397,8 +479,12 @@ export default function CreatePage() {
                   <p className="text-sm text-zinc-600 dark:text-zinc-400">Be clear and descriptive. Include the type of activity.</p>
                 </div>
                 <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4">
-                  <h4 className="font-semibold text-black dark:text-white text-sm mb-2">Description</h4>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Explain what you'll be doing and what to expect.</p>
+                  <h4 className="font-semibold text-black dark:text-white text-sm mb-2">Categories</h4>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Select multiple categories that fit. Add a custom one if none match — it'll be available for everyone.</p>
+                </div>
+                <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4">
+                  <h4 className="font-semibold text-black dark:text-white text-sm mb-2">Zip Code</h4>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">Enter your zip so people nearby can find your activity using distance filters.</p>
                 </div>
                 <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4">
                   <div className="flex items-center gap-1.5 mb-2">

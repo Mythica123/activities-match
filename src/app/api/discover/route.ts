@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('activities')
       .select(`
-        id, title, description, category, scheduled_at,
+        id, title, description, categories, scheduled_at,
         location, image_url, max_participants, current_participants,
         genders, age_min, age_max, distance_miles, created_at, creator_id
       `)
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     if (distanceMax) query = query.lte('distance_miles', parseFloat(distanceMax));
     if (categories) {
       const catArray = categories.split(',').map(c => c.trim()).filter(Boolean);
-      if (catArray.length > 0) query = query.in('category', catArray);
+      if (catArray.length > 0) query = query.overlaps('categories', catArray);
     }
 
     // Exclude user's own activities

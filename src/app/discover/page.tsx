@@ -11,7 +11,7 @@ interface Activity {
   id: string;
   title: string;
   description: string;
-  category: string;
+  categories: string[];
   scheduled_at: string;
   location: string;
   image_url: string | null;
@@ -133,13 +133,13 @@ function SwipeCard({
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <span className="text-6xl opacity-20">
-                {activity.category === 'sports' ? '🏃' :
-                 activity.category === 'gaming' ? '🎮' :
-                 activity.category === 'outdoor' ? '🌿' :
-                 activity.category === 'arts' ? '🎨' :
-                 activity.category === 'fitness' ? '💪' :
-                 activity.category === 'social' ? '🤝' :
-                 activity.category === 'education' ? '📚' : '✨'}
+                {activity.categories[0] === 'sports'    ? '🏃' :
+                activity.categories[0] === 'gaming'    ? '🎮' :
+                activity.categories[0] === 'outdoor'   ? '🌿' :
+                activity.categories[0] === 'arts'      ? '🎨' :
+                activity.categories[0] === 'fitness'   ? '💪' :
+                activity.categories[0] === 'social'    ? '🤝' :
+                activity.categories[0] === 'education' ? '📚' : '✨'}
               </span>
             </div>
           )}
@@ -161,10 +161,12 @@ function SwipeCard({
           )}
 
           {/* Category badge */}
-          <div className="absolute top-3 left-3">
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${categoryColor(activity.category)}`}>
-              {activity.category}
-            </span>
+          <div className="absolute top-3 left-3 flex gap-1 flex-wrap">
+            {activity.categories.map(cat => (
+                <span key={cat} className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${categoryColor(cat)}`}>
+                {cat}
+                </span>
+            ))}
           </div>
 
           {/* Spots badge */}
@@ -216,24 +218,28 @@ function ListCard({ activity }: { activity: Activity }) {
           <img src={activity.image_url} alt={activity.title} className="w-full h-full object-cover" />
         ) : (
           <span className="text-4xl opacity-30">
-            {activity.category === 'sports' ? '🏃' :
-             activity.category === 'gaming' ? '🎮' :
-             activity.category === 'outdoor' ? '🌿' :
-             activity.category === 'arts' ? '🎨' :
-             activity.category === 'fitness' ? '💪' :
-             activity.category === 'social' ? '🤝' :
-             activity.category === 'education' ? '📚' : '✨'}
+            {activity.categories[0] === 'sports' ? '🏃' :
+             activity.categories[0] === 'gaming' ? '🎮' :
+             activity.categories[0] === 'outdoor' ? '🌿' :
+             activity.categories[0] === 'arts' ? '🎨' :
+             activity.categories[0] === 'fitness' ? '💪' :
+             activity.categories[0] === 'social' ? '🤝' :
+             activity.categories[0] === 'education' ? '📚' : '✨'}
           </span>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 flex flex-col">
+        <div className="flex-1 p-4 flex flex-col">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-bold text-black dark:text-white text-base leading-snug">{activity.title}</h3>
-          <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${categoryColor(activity.category)}`}>
-            {activity.category}
-          </span>
+            <h3 className="font-bold text-black dark:text-white text-base leading-snug">{activity.title}</h3>
+            <div className="flex-shrink-0 flex gap-1 flex-wrap justify-end">
+            {activity.categories.map(cat => (
+                <span key={cat} className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${categoryColor(cat)}`}>
+                {cat}
+                </span>
+            ))}
+            </div>
         </div>
 
         <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 mb-3">{activity.description}</p>
