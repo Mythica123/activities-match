@@ -374,13 +374,13 @@ export default function DiscoverPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => sendJoinRequest()}
-                    className="flex-1 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    className="flex-1 py-2.5 rounded-xl border-2 border-zinc-400 text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition-colors"
                   >
                     No, just request
                   </button>
                   <button
                     onClick={() => setModalStep('compose')}
-                    className="flex-1 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-90 transition-opacity"
+                    className="flex-1 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:opacity-90 transition-opacity"
                   >
                     Yes, send message
                   </button>
@@ -408,14 +408,14 @@ export default function DiscoverPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setModalStep('ask')}
-                    className="flex-1 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    className="flex-1 py-2.5 rounded-xl border-2 border-zinc-400 text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition-colors"
                   >
                     Back
                   </button>
                   <button
                     onClick={() => sendJoinRequest(introMessage)}
                     disabled={submitting || !introMessage.trim()}
-                    className="flex-1 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
+                    className="flex-1 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
                   >
                     {submitting ? 'Sending...' : 'Send & Request'}
                   </button>
