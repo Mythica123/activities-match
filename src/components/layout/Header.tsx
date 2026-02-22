@@ -55,10 +55,10 @@ export default function Header() {
             <span className="sr-only">Activity Match</span>
           </Link>
           <nav className="hidden md:flex items-center gap-8">
-            <Link href="/discover" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Discover</Link>
-            <Link href="/create" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Create</Link>
-            <Link href="/requests" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Requests</Link>
-            <Link href="/messages" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Messages</Link>
+            <Link href="/discover" style={{ color: '#2e4ed2' }} className="text-base font-semibold hover:opacity-80 transition-opacity">Discover</Link>
+            <Link href="/create" style={{ color: '#2e4ed2' }} className="text-base font-semibold hover:opacity-80 transition-opacity">Create</Link>
+            <Link href="/requests" onClick={() => setPendingRequests(0)} style={{ color: '#2e4ed2' }} className="relative text-base font-semibold hover:opacity-80 transition-opacity">Requests</Link>
+            <Link href="/messages" onClick={() => setUnreadCount(0)} style={{ color: '#2e4ed2' }} className="relative text-base font-semibold hover:opacity-80 transition-opacity">Messages</Link>
           </nav>
           <div className="w-10 h-10" />
         </div>
@@ -82,13 +82,13 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
-          <Link href="/discover" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
+          <Link href="/discover" style={{ color: '#2e4ed2' }} className="text-base font-semibold hover:opacity-80 transition-opacity">
             Discover
           </Link>
-          <Link href="/create" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
+          <Link href="/create" style={{ color: '#2e4ed2' }} className="text-base font-semibold hover:opacity-80 transition-opacity">
             Create
           </Link>
-          <Link href="/requests" onClick={() => setPendingRequests(0)} className="relative text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
+          <Link href="/requests" onClick={() => setPendingRequests(0)} style={{ color: '#2e4ed2' }} className="relative text-base font-semibold hover:opacity-80 transition-opacity">
             Requests
             {pendingRequests > 0 && (
               <span className="absolute -top-2.5 -right-4 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
@@ -99,7 +99,8 @@ export default function Header() {
           <Link
             href="/messages"
             onClick={() => setUnreadCount(0)}
-            className="relative text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors"
+            style={{ color: '#2e4ed2' }}
+            className="relative text-base font-semibold hover:opacity-80 transition-opacity"
           >
             Messages
             {unreadCount > 0 && (
@@ -112,7 +113,7 @@ export default function Header() {
 
         <div className="flex items-center gap-4">
           {username && (
-            <span className="text-base font-semibold text-zinc-700 dark:text-zinc-300">{username}</span>
+            <span style={{ color: '#2e4ed2' }} className="text-base font-semibold">{username}</span>
           )}
           <div className="relative">
             <button
@@ -120,7 +121,7 @@ export default function Header() {
               className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
               aria-label="User menu"
             >
-              <User className="w-6 h-6 text-black dark:text-white" />
+              <User className="w-6 h-6" style={{ color: '#2e4ed2' }} />
             </button>
 
             {isDropdownOpen && (
