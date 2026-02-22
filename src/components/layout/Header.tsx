@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { User, LogOut, Settings } from 'lucide-react';
@@ -12,7 +13,7 @@ export default function Header() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
+    setMounted(true);
     const storedUsername = localStorage.getItem('username');
     const email = localStorage.getItem('userEmail');
 
@@ -38,19 +39,26 @@ export default function Header() {
     window.location.href = '/login';
   };
 
-  // Avoid hydration mismatch by not rendering user-specific content until mounted
   if (!mounted) {
     return (
-      <header className="sticky top-0 z-40 bg-white dark:bg-black border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-          <Link href="/" className="text-2xl font-bold text-black dark:text-white hover:opacity-80 transition-opacity">
-            Activity Match
+      <header className="sticky top-0 z-40 bg-background dark:bg-black border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <div className="flex items-center justify-between px-6 py-2 max-w-7xl mx-auto">
+          <Link href="/" className="flex items-center gap-4">
+            <Image
+              src="/logo.png"
+              alt="Activity Match"
+              width={120}
+              height={120}
+              className="object-contain dark:invert -my-6"
+              priority
+            />
+            <span className="sr-only">Activity Match</span>
           </Link>
           <nav className="hidden md:flex items-center gap-8">
-            <Link href="/discover" className="text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Discover</Link>
-            <Link href="/create" className="text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Create</Link>
-            <Link href="/requests" className="text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Requests</Link>
-            <Link href="/messages" className="text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Messages</Link>
+            <Link href="/discover" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Discover</Link>
+            <Link href="/create" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Create</Link>
+            <Link href="/requests" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Requests</Link>
+            <Link href="/messages" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">Messages</Link>
           </nav>
           <div className="w-10 h-10" />
         </div>
@@ -59,22 +67,28 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-white dark:bg-black border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
-      <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-        {/* Logo */}
-        <Link href="/" className="text-2xl font-bold text-black dark:text-white hover:opacity-80 transition-opacity">
-          Activity Match
+    <header className="sticky top-0 z-40 bg-background dark:bg-black border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
+      <div className="flex items-center justify-between px-6 py-2 max-w-7xl mx-auto">
+        <Link href="/" className="flex items-center gap-4">
+          <Image
+            src="/logo.png"
+            alt="Activity Match"
+            width={120}
+            height={120}
+            className="object-contain dark:invert -my-6"
+            priority
+          />
+          <span className="sr-only">Activity Match</span>
         </Link>
 
-        {/* Navigation */}
         <nav className="hidden md:flex items-center gap-8">
-          <Link href="/discover" className="text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
+          <Link href="/discover" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
             Discover
           </Link>
-          <Link href="/create" className="text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
+          <Link href="/create" className="text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
             Create
           </Link>
-          <Link href="/requests" onClick={() => setPendingRequests(0)} className="relative text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
+          <Link href="/requests" onClick={() => setPendingRequests(0)} className="relative text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
             Requests
             {pendingRequests > 0 && (
               <span className="absolute -top-2.5 -right-4 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
@@ -85,7 +99,7 @@ export default function Header() {
           <Link
             href="/messages"
             onClick={() => setUnreadCount(0)}
-            className="relative text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors"
+            className="relative text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors"
           >
             Messages
             {unreadCount > 0 && (
@@ -96,10 +110,9 @@ export default function Header() {
           </Link>
         </nav>
 
-        {/* User section */}
         <div className="flex items-center gap-4">
           {username && (
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{username}</span>
+            <span className="text-base font-semibold text-zinc-700 dark:text-zinc-300">{username}</span>
           )}
           <div className="relative">
             <button
@@ -114,12 +127,12 @@ export default function Header() {
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-950 rounded-md shadow-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden z-50">
                 {username ? (
                   <>
-                    <div className="px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    <div className="px-4 py-3 text-base font-semibold text-zinc-700 dark:text-zinc-300">
                       {username}
                     </div>
                     <Link
                       href="/profile"
-                      className="block px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center gap-2"
+                      className="block px-4 py-3 text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center gap-2"
                       onClick={() => setIsDropdownOpen(false)}
                     >
                       <Settings className="w-4 h-4" />
@@ -127,7 +140,7 @@ export default function Header() {
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center gap-2"
+                      className="w-full text-left px-4 py-3 text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center gap-2"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Log Out</span>
@@ -136,7 +149,7 @@ export default function Header() {
                 ) : (
                   <Link
                     href="/login"
-                    className="block px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                    className="block px-4 py-3 text-base font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
                     onClick={() => setIsDropdownOpen(false)}
                   >
                     Log In
