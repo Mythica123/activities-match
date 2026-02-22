@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
         location, image_url, max_participants, current_participants,
         genders, age_min, age_max, distance_miles, created_at, creator_id
       `)
-      .eq('is_cancelled', false)
+      .or('is_cancelled.eq.false,is_cancelled.is.null')
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true });
 

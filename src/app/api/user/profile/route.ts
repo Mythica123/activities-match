@@ -29,9 +29,9 @@ export async function GET(req: NextRequest) {
     // Get activities this user has hosted
     const { data: hostedActivities } = await supabase
       .from('activities')
-      .select('id, title, scheduled_at, location, category, max_participants, current_participants, is_cancelled')
+      .select('id, title, scheduled_at, location, categories, max_participants, current_participants, is_cancelled')
       .eq('creator_id', user.id)
-      .eq('is_cancelled', false)
+      .or('is_cancelled.eq.false,is_cancelled.is.null')
       .order('scheduled_at', { ascending: false });
 
     // Get activities this user has joined (accepted join requests)
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     if (joinedActivityIds.length > 0) {
       const { data } = await supabase
         .from('activities')
-        .select('id, title, scheduled_at, location, category, max_participants, current_participants, creator_id')
+        .select('id, title, scheduled_at, location, categories, max_participants, current_participants, creator_id')
         .in('id', joinedActivityIds)
         .order('scheduled_at', { ascending: false });
       joinedActivities = data ?? [];
