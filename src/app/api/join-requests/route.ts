@@ -6,7 +6,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Helper to get user by email
 async function getUserByEmail(email: string) {
   const { data } = await supabase
     .from('users')
@@ -16,7 +15,6 @@ async function getUserByEmail(email: string) {
   return data;
 }
 
-// Helper to count activities created by a user
 async function getActivitiesCreatedCount(userId: string) {
   const { count } = await supabase
     .from('activities')
@@ -25,7 +23,6 @@ async function getActivitiesCreatedCount(userId: string) {
   return count ?? 0;
 }
 
-// Helper to count accepted join requests (matches) for a user
 async function getMatchesCount(userId: string) {
   const { count } = await supabase
     .from('join_requests')
@@ -35,22 +32,20 @@ async function getMatchesCount(userId: string) {
   return count ?? 0;
 }
 
-// ── POST /api/join-requests — User A sends a join request ─────────────────────
+// ── POST /api/join-requests ───────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const { activityId, requesterEmail } = await req.json();
+    const { activityId, requesterEmail, message } = await req.json();
 
     if (!activityId || !requesterEmail) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
-    // Get requester
     const requester = await getUserByEmail(requesterEmail);
     if (!requester) {
       return NextResponse.json({ message: 'Requester not found' }, { status: 404 });
     }
 
-    // Get activity + host
     const { data: activity, error: actError } = await supabase
       .from('activities')
       .select('id, title, creator_id')
@@ -65,7 +60,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Cannot request to join your own activity' }, { status: 400 });
     }
 
-    // Insert join request (ignore if already exists)
     const { data: joinRequest, error: insertError } = await supabase
       .from('join_requests')
       .insert({
@@ -73,6 +67,7 @@ export async function POST(req: NextRequest) {
         requester_id: requester.id,
         host_id:      activity.creator_id,
         status:       'pending',
+        message:      message?.trim() || null,
       })
       .select()
       .single();
@@ -91,11 +86,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── GET /api/join-requests — User B fetches incoming requests ─────────────────
+// ── GET /api/join-requests ────────────────────────────────────────────────────
+// ?hostEmail=...           → pending requests
+// ?hostEmail=...&type=accepted → accepted members grouped by activity
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const hostEmail = searchParams.get('hostEmail');
+    const type      = searchParams.get('type'); // 'accepted' or default pending
 
     if (!hostEmail) {
       return NextResponse.json({ message: 'Missing hostEmail' }, { status: 400 });
@@ -106,12 +104,69 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
-    // Get all pending requests for this host's activities
+    // ── Accepted members grouped by activity ─────────────────────────────────
+    if (type === 'accepted') {
+      const { data: accepted, error } = await supabase
+        .from('join_requests')
+        .select('id, requester_id, activity_id')
+        .eq('host_id', host.id)
+        .eq('status', 'accepted')
+        .order('activity_id', { ascending: true });
+
+      if (error) {
+        return NextResponse.json({ message: error.message }, { status: 500 });
+      }
+
+      // Group by activity
+      const activityMap: Record<string, { activity: any; members: any[] }> = {};
+
+      await Promise.all(
+        (accepted ?? []).map(async (r) => {
+          // Fetch activity if not already in map
+          if (!activityMap[r.activity_id]) {
+            const { data: activity } = await supabase
+              .from('activities')
+              .select('id, title, scheduled_at, location, category')
+              .eq('id', r.activity_id)
+              .single();
+            activityMap[r.activity_id] = { activity, members: [] };
+          }
+
+          // Fetch member profile
+          const { data: requester } = await supabase
+            .from('users')
+            .select('id, username, gender, birthday')
+            .eq('id', r.requester_id)
+            .single();
+
+          const activitiesCreated = await getActivitiesCreatedCount(r.requester_id);
+          const matchesCount      = await getMatchesCount(r.requester_id);
+
+          let age: number | null = null;
+          if (requester?.birthday) {
+            const birth = new Date(requester.birthday);
+            const today = new Date();
+            age = today.getFullYear() - birth.getFullYear();
+            const m = today.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+          }
+
+          activityMap[r.activity_id].members.push({
+            requestId: r.id,
+            requester: requester ? { ...requester, age } : null,
+            activitiesCreated,
+            matchesCount,
+          });
+        })
+      );
+
+      return NextResponse.json({ grouped: Object.values(activityMap) }, { status: 200 });
+    }
+
+    // ── Pending requests ──────────────────────────────────────────────────────
     const { data: requests, error } = await supabase
       .from('join_requests')
-      .select(`
-        id, created_at, status, activity_id, requester_id
-      `)
+      .select('id, created_at, status, activity_id, requester_id, message')
       .eq('host_id', host.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
@@ -120,17 +175,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: error.message }, { status: 500 });
     }
 
-    // Enrich each request with requester profile + activity info
     const enriched = await Promise.all(
       (requests ?? []).map(async (r) => {
-        // Get requester profile
         const { data: requester } = await supabase
           .from('users')
           .select('id, username, gender, birthday')
           .eq('id', r.requester_id)
           .single();
 
-        // Get activity info
         const { data: activity } = await supabase
           .from('activities')
           .select('id, title, scheduled_at, location, category')
@@ -140,7 +192,6 @@ export async function GET(req: NextRequest) {
         const activitiesCreated = await getActivitiesCreatedCount(r.requester_id);
         const matchesCount      = await getMatchesCount(r.requester_id);
 
-        // Calculate age from birthday
         let age: number | null = null;
         if (requester?.birthday) {
           const birth = new Date(requester.birthday);

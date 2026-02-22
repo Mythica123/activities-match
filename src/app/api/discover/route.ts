@@ -26,6 +26,17 @@ export async function GET(req: NextRequest) {
       userId     = userData?.id     ?? null;
     }
 
+    // Fetch activity IDs the user has already interacted with
+    // (any join request status: pending, accepted, rejected)
+    let seenActivityIds: string[] = [];
+    if (userId) {
+      const { data: seenRequests } = await supabase
+        .from('join_requests')
+        .select('activity_id')
+        .eq('requester_id', userId);
+      seenActivityIds = (seenRequests ?? []).map(r => r.activity_id);
+    }
+
     let query = supabase
       .from('activities')
       .select(`
@@ -43,8 +54,13 @@ export async function GET(req: NextRequest) {
       if (catArray.length > 0) query = query.in('category', catArray);
     }
 
-    // Exclude the user's own activities at the DB level
+    // Exclude user's own activities
     if (userId) query = query.neq('creator_id', userId);
+
+    // Exclude already seen activities at DB level
+    if (seenActivityIds.length > 0) {
+      query = query.not('id', 'in', `(${seenActivityIds.join(',')})`);
+    }
 
     const { data: activities, error } = await query.limit(100);
 
