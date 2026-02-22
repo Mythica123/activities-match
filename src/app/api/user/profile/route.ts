@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,43 +12,59 @@ export async function GET(req: NextRequest) {
     const email = searchParams.get('email');
 
     if (!email) {
-      return NextResponse.json(
-        { message: 'Email is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'Email is required' }, { status: 400 });
     }
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json(
-        { message: 'Server not configured' },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { data, error } = await supabase
+    // Get user
+    const { data: user, error } = await supabase
       .from('users')
       .select('id, email, username, birthday, gender')
       .eq('email', email)
       .single();
 
-    if (error || !data) {
-      return NextResponse.json(
-        { message: 'User not found' },
-        { status: 404 }
-      );
+    if (error || !user) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    // Get activities this user has hosted
+    const { data: hostedActivities } = await supabase
+      .from('activities')
+      .select('id, title, scheduled_at, location, category, max_participants, current_participants, is_cancelled')
+      .eq('creator_id', user.id)
+      .eq('is_cancelled', false)
+      .order('scheduled_at', { ascending: false });
+
+    // Get activities this user has joined (accepted join requests)
+    const { data: joinedRequests } = await supabase
+      .from('join_requests')
+      .select('activity_id')
+      .eq('requester_id', user.id)
+      .eq('status', 'accepted');
+
+    const joinedActivityIds = (joinedRequests ?? []).map(r => r.activity_id);
+
+    let joinedActivities: any[] = [];
+    if (joinedActivityIds.length > 0) {
+      const { data } = await supabase
+        .from('activities')
+        .select('id, title, scheduled_at, location, category, max_participants, current_participants, creator_id')
+        .in('id', joinedActivityIds)
+        .order('scheduled_at', { ascending: false });
+      joinedActivities = data ?? [];
     }
 
     return NextResponse.json({
       success: true,
-      user: data,
+      user,
+      stats: {
+        activitiesHosted: (hostedActivities ?? []).length,
+        activitiesJoined: joinedActivityIds.length,
+      },
+      hostedActivities: hostedActivities ?? [],
+      joinedActivities,
     });
-  } catch (error) {
-    console.error('Profile fetch error:', error);
-    return NextResponse.json(
-      { message: error instanceof Error ? error.message : 'Failed to fetch profile' },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error('Profile fetch error:', err);
+    return NextResponse.json({ message: 'Failed to fetch profile' }, { status: 500 });
   }
 }
